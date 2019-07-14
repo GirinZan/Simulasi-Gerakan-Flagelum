@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="ISO-8859-1">
+		<title>vect3</title>
+		<script src="Grains4/vect3a.js"></script>
+		<script src="Grains4/graina.js"></script>
+		<script src="Grains4/forcea.js"></script>
+		<script src="Grains4/mdynamicsa.js"></script>
+		<script src="Grains4/draw2da.js"></script>
+		<script src="Grains4/layouta.js"></script>
+	</head>
+	<body>
+		<script>
+			
+			var timer1;
+			var N = 50;
+			var grains = new Array(N);
+			var kL; //lift constant
+			var magU; //flow speed
+			var theta; //angle
+			
+			layout();
+			initiate();
+			
+			Mdynamics.setdt(1E-3); //set timestep
+			
+			//initiate all positions and parameters of the head and grains
+			function initiate() {
+				
+				m1 = 0.1; //mass of all grains
+				c1 = "#000"; //border color of all grains
+				D = 0.2; //diameter of the tails
+				x0 = -13.3; //initial position
+				var i = 0;
+				for(var ix = 0; ix <= N; ix++) {
+					if (ix==N){ //this is for head
+						grains[i] = new Grain;
+						grains[i].i = i;
+						x = x0 + ix*D + 0.12; //head position
+						grains[i].r = new Vect3(x, -7, 0);
+						grains[i].r0 = new Vect3(x, -7, 0); //initial head position
+						grains[i].m = m1;
+						grains[i].c = c1;
+						grains[i].D = D + 0.4; //diameter of head
+					}else{	//this is for tail grains
+						grains[i] = new Grain;
+						grains[i].i = i;
+						x = x0 + ix*D; //tail grain position
+						grains[i].r = new Vect3(x, -7, 0);
+						grains[i].r0 = new Vect3(x, -7, 0); //initial tail grain position
+						grains[i].m = m1;
+						grains[i].c = c1;
+						grains[i].D = D;
+					}	
+					i++;
+				}
+				
+				//plot everything initially
+				for(var iN = 0; iN <= N; iN++) {
+					plotParticle(grains[iN]);
+				}
+			}
+			
+			iter = 0;
+			
+			function run() {
+				grains[N-2].c = "#f50";//make the locomotor grain red
+				
+				getParams();//get parameters like freq, ampl and so on
+				
+				/*let's input U and angle
+				if(iter%2 == 0) 
+				{
+					theta = -Math.PI/3; //tail goes down
+				}else if(iter%2 != 0) 
+				{
+					theta = Math.PI/3; //tail goes up
+				}*/
+				
+				Ux = magU*Math.cos(2*Math.PI*freq*t); //horizontal of U
+				Uy = magU*Math.sin(2*Math.PI*freq*t); //vertical of U
+				vecU = new Vect3(Ux,Uy,0); //vector components of flow speed
+				
+				//pake grain N-2 sbg locomotor krn nanti kepalanya putus dr tail
+				grains[N-2].v = vecU; 
+				
+				// Prepare variable for saving sum of forces
+				SF = new Array(N);
+				for(var iN = 0; iN <= N; iN++) {
+					SF[iN] = new Vect3;
+				}
+				
+				//calculate lift force
+				for(var iN = 0; iN <= N; iN++)
+				{
+					var f = Force.lift(grains[iN]);
+					SF[iN] = Vect3.add(SF[iN], f);
+				}
+				
+				// Calculate drag force
+				for(var iN = 0; iN <= N; iN++) {
+					var f = Force.drag(grains[iN]);
+					SF[iN] = Vect3.add(SF[iN], f);
+				}
+				
+				// Calculate spring force
+				for(var iN = N; iN >= 0; iN--) {
+					var f = new Vect3;
+					if (iN==(N)){
+						f = Force.spring(grains[iN], grains[iN-1]);
+					}else if (iN==0){
+						f = Force.spring(grains[iN], grains[iN+1]);
+					}else{
+						f = Vect3.add(Force.spring(grains[iN], grains[iN+1]),Force.spring(grains[iN], grains[iN-1]));
+					}
+					SF[iN] = Vect3.add(SF[iN], f);
+				}
+				
+				var hout = document.getElementById("hout");
+				hout.innerHTML =  grains[N-1].r.y; //show the position 
+				var str = "\nt = " + t + " s"; //put current time in textarea
+				hout.innerHTML += str;
+				
+				clearCurrentFigure();
+				for(var iN = 0; iN <= N; iN++) {
+					//this one is simply to draw the grains and head
+					plotParticle(grains[iN]); 
+				}
+				
+				//make it come again from left, infinite loop
+				if(grains[N-1].r.x >= 8)
+				{
+					initiate();
+				}
+				
+				for(var iN = 0; iN <= N; iN++) {
+					Mdynamics.Euler(SF[iN], grains[iN]);
+				}
+				Mdynamics.inct(); //increase time void 
+				
+				iter++;
+			}
+		</script>
+	</body>
+</html>
